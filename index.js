@@ -65,11 +65,11 @@ async function run() {
             }
         }
 
-        const verifyInstructor = async (req, res, next) => {
+        const verifysalon = async (req, res, next) => {
             const email = req.decoded.email;
             const query = { email: email };
             const user = await userCollection.findOne(query);
-            if (user.role === 'instructor' || user.role === 'admin') {
+            if (user.role === 'salon' || user.role === 'admin') {
                 next()
             }
             else {
@@ -144,17 +144,17 @@ async function run() {
         // ! CLASSES ROUTES
 
 
-        app.post('/new-class', verifyJWT, verifyInstructor, async (req, res) => {
+        app.post('/new-class', verifyJWT, verifysalon, async (req, res) => {
             const newClass = req.body;
             newClass.availableSeats = parseInt(newClass.availableSeats)
             const result = await classesCollection.insertOne(newClass);
             res.send(result);
         });
 
-        // GET ALL CLASSES ADDED BY INSTRUCTOR
-        app.get('/classes/:email', verifyJWT, verifyInstructor, async (req, res) => {
+        // GET ALL CLASSES ADDED BY salon
+        app.get('/classes/:email', verifyJWT, verifysalon, async (req, res) => {
             const email = req.params.email;
-            const query = { instructorEmail: email };
+            const query = { salonEmail: email };
             const result = await classesCollection.find(query).toArray();
             res.send(result);
         })
@@ -195,15 +195,15 @@ async function run() {
             res.send(result);
         })
 
-        // GET ALL INSTRUCTORS
-        app.get('/instructors', async (req, res) => {
-            const query = { role: 'instructor' };
+        // GET ALL salonS
+        app.get('/salons', async (req, res) => {
+            const query = { role: 'salon' };
             const result = await userCollection.find(query).toArray();
             res.send(result);
         })
 
         // Update a class
-        app.put('/update-class/:id', verifyJWT, verifyInstructor, async (req, res) => {
+        app.put('/update-class/:id', verifyJWT, verifysalon, async (req, res) => {
             const id = req.params.id;
             const updatedClass = req.body;
             const filter = { _id: new ObjectId(id) };
@@ -305,7 +305,7 @@ async function run() {
                     availableSeats: classes.reduce((total, current) => total + current.availableSeats, 0) - 1 || 0,
                 }
             }
-            // const updatedInstructor = await userCollection.find()
+            // const updatedsalon = await userCollection.find()
             const updatedResult = await classesCollection.updateMany(classesQuery, updatedDoc, { upsert: true });
             const enrolledResult = await enrolledCollection.insertOne(newEnrolledData);
             const deletedResult = await cartCollection.deleteMany(query);
@@ -338,11 +338,11 @@ async function run() {
         })
 
 
-        app.get('/popular-instructors', async (req, res) => {
+        app.get('/popular-salons', async (req, res) => {
             const pipeline = [
                 {
                     $group: {
-                        _id: "$instructorEmail",
+                        _id: "$salonEmail",
                         totalEnrolled: { $sum: "$totalEnrolled" },
                     }
                 },
@@ -351,14 +351,14 @@ async function run() {
                         from: "users",
                         localField: "_id",
                         foreignField: "email",
-                        as: "instructor"
+                        as: "salon"
                     }
                 },
                 {
                     $project: {
                         _id: 0,
-                        instructor: {
-                            $arrayElemAt: ["$instructor", 0]
+                        salon: {
+                            $arrayElemAt: ["$salon", 0]
                         },
                         totalEnrolled: 1
                     }
@@ -379,10 +379,10 @@ async function run() {
 
         // Admins stats 
         app.get('/admin-stats', verifyJWT, verifyAdmin, async (req, res) => {
-            // Get approved classes and pending classes and instructors 
+            // Get approved classes and pending classes and salons 
             const approvedClasses = (await classesCollection.find({ status: 'approved' }).toArray()).length;
             const pendingClasses = (await classesCollection.find({ status: 'pending' }).toArray()).length;
-            const instructors = (await userCollection.find({ role: 'instructor' }).toArray()).length;
+            const salons = (await userCollection.find({ role: 'salon' }).toArray()).length;
             const totalClasses = (await classesCollection.find().toArray()).length;
             const totalEnrolled = (await enrolledCollection.find().toArray()).length;
             // const totalRevenue = await paymentCollection.find().toArray();
@@ -390,7 +390,7 @@ async function run() {
             const result = {
                 approvedClasses,
                 pendingClasses,
-                instructors,
+                salons,
                 totalClasses,
                 totalEnrolled,
                 // totalRevenueAmount
@@ -399,10 +399,10 @@ async function run() {
 
         })
 
-        // !GET ALL INSTrUCTOR  
+        // !GET ALL salon  
 
-        app.get('/instructors', async (req, res) => {
-            const result = await userCollection.find({ role: 'instructor' }).toArray();
+        app.get('/salons', async (req, res) => {
+            const result = await userCollection.find({ role: 'salon' }).toArray();
             res.send(result);
         })
 
@@ -430,17 +430,17 @@ async function run() {
                 {
                     $lookup: {
                         from: "users",
-                        localField: "classes.instructorEmail",
+                        localField: "classes.salonEmail",
                         foreignField: "email",
-                        as: "instructor"
+                        as: "salon"
                     }
                 },
                 {
                     $project: {
                         _id: 0,
                         classes: 1,
-                        instructor: {
-                            $arrayElemAt: ["$instructor", 0]
+                        salon: {
+                            $arrayElemAt: ["$salon", 0]
                         }
                     }
                 }
@@ -452,12 +452,12 @@ async function run() {
         })
 
         // Applied route 
-        app.post('/as-instructor', async (req, res) => {
+        app.post('/as-salon', async (req, res) => {
             const data = req.body;
             const result = await appliedCollection.insertOne(data);
             res.send(result);
         })
-        app.get('/applied-instructors/:email',   async (req, res) => {
+        app.get('/applied-salons/:email',   async (req, res) => {
             const email = req.params.email;
             const result = await appliedCollection.findOne({email});
             res.send(result);
